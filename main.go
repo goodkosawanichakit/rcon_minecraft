@@ -102,37 +102,25 @@ func handleCommand(conn net.Conn) ([]Packet, error) {
 	var packets []Packet
 
 	var packet Packet = makePacket(COMMAND, strings.Join(os.Args[1:], " "))
-	var dummyPacket Packet = makePacket(COMMAND, "dummy")
-
-	dummyPacket.Id += 1
-	var dummyId = dummyPacket.Id
 
 	var rawBytes []byte = makeBuffer(&packet)
-	var rawDummyBytes []byte = makeBuffer(&dummyPacket)
 
 	err := sendPacket(conn, rawBytes)
 	if err != nil {
 		return packets, err
 	}
-
-	err = sendPacket(conn, rawDummyBytes)
-	if err != nil {
-		return packets, err
-	}
-
 	for {
 		packet, err = readPacket(conn)
 		if err != nil {
 			return packets, err
 		}
 
-		if packet.Id == dummyId {
+		packets = append(packets, packet)
+
+		if packet.Length < 4096 {
 			break
 		}
-
-		packets = append(packets, packet)
 	}
-
 	return packets, nil
 }
 
