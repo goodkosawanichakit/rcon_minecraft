@@ -98,6 +98,44 @@ func handleAuthentication(conn net.Conn) error {
 	return nil
 }
 
+func handleCommand(conn net.Conn) ([]Packet, error) {
+	var packets []Packet
+
+	var packet Packet = makePacket(COMMAND, strings.Join(os.Args[1:], " "))
+	var dummyPacket Packet = makePacket(COMMAND, "dummy")
+
+	dummyPacket.Id += 1
+	var dummyId = dummyPacket.Id
+
+	var rawBytes []byte = makeBuffer(&packet)
+	var rawDummyBytes []byte = makeBuffer(&dummyPacket)
+
+	err := sendPacket(conn, rawBytes)
+	if err != nil {
+		return packets, err
+	}
+
+	err = sendPacket(conn, rawDummyBytes)
+	if err != nil {
+		return packets, err
+	}
+
+	for {
+		packet, err = readPacket(conn)
+		if err != nil {
+			return packets, err
+		}
+
+		if packet.Id == dummyId {
+			break
+		}
+
+		packets = append(packets, packet)
+	}
+
+	return packets, nil
+}
+
 func main() {
 	if len(os.Args) <= 1 {
 		fmt.Println("What do you want?")
@@ -120,8 +158,19 @@ func main() {
 
 	defer conn.Close()
 
-	if error := handleAuthentication(conn); error != nil {
-		fmt.Println("Authentication falied:", error)
+	if err := handleAuthentication(conn); err != nil {
+		fmt.Println("Authentication falied:", err)
 		os.Exit(1)
+	}
+
+	var packets []Packet
+
+	packets, err = handleCommand(conn)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	for _, p := range packets {
+		fmt.Println(string(p.Payload))
 	}
 }
